@@ -23,7 +23,6 @@
         body {
             font-family: 'Nunito', sans-serif;
             background-color: var(--azul-claro);
-            /* FUNDO ORGANIZADO COM MAÇÃS, COROAS E CRISTAIS */
             background-image: url("data:image/svg+xml,%3Csvg width='120' height='120' viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2301579b' fill-opacity='0.12'%3E%3Cpath d='M30,18 C25,16 20,20 20,28 C20,36 25,40 28,38 C30,39 30,39 32,38 C35,40 40,36 40,28 C40,20 35,16 30,18 Z'/%3E%3Cpath d='M75,20 L80,32 L90,22 L100,32 L105,20 L100,42 L80,42 Z'/%3E%3Cpath d='M22,78 L38,78 L44,88 L30,105 L16,88 Z'/%3E%3Cpath d='M85,75 L95,75 L102,88 L90,105 L78,88 Z'/%3E%3C/g%3E%3Cpath d='M30,18 Q30,10 35,10' fill='none' stroke='%2301579b' stroke-width='2' stroke-opacity='0.12'/%3E%3C/svg%3E");
             margin: 0; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; box-sizing: border-box;
         }
@@ -50,6 +49,16 @@
             background-color: var(--vermelho-claro); color: var(--branco); border: none; padding: 15px 30px; font-size: 1.2em; border-radius: 30px; cursor: pointer; font-weight: 700; width: 100%; margin-top: 15px;
         }
         .btn-yellow { background-color: var(--amarelo); color: #333; }
+        
+        /* Estilo do botão de excluir */
+        .btn-delete { 
+            background-color: #ff4d4d; 
+            padding: 8px 15px; 
+            font-size: 0.9em; 
+            margin-top: 0; 
+            width: auto; 
+            box-shadow: none;
+        }
 
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
@@ -97,7 +106,7 @@
         <h1>Lista de Convidados</h1>
         <div style="overflow-x:auto;">
             <table id="guests-table">
-                <thead><tr><th>Nome</th><th>Presença</th></tr></thead>
+                <thead><tr><th>Nome</th><th>Presença</th><th>Ação</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -105,8 +114,8 @@
     </div>
 
     <script>
-        // --- COLOQUE O SEU URL DO GOOGLE APPS SCRIPT AQUI ---
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwKVfez9UwZvd7h9wpjkFjp2jkYVfKSh_mvTNN4eAnbNBLPZsZKjLB0AhIYFJIdORnvvA/exec";
+        // --- COLOQUE O SEU NOVO URL DO GOOGLE APPS SCRIPT AQUI ---
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxT2Hd3ogFJYcDPYkbSh9fFKmDhtwA3y6gtHi8AnNECnJGWCA755KerQaiLXfYPDuMzSQ/exec";
 
         async function saveGuest(event) {
             event.preventDefault();
@@ -124,7 +133,17 @@
                     method: 'POST',
                     body: JSON.stringify(guestData)
                 });
-                Swal.fire({ title: 'Sucesso!', text: 'Sua resposta foi salva na planilha!', icon: 'success' });
+                
+                if (guestData.status === 'Sim, eu vou!') {
+                    Swal.fire({
+                        title: 'Que alegria!',
+                        html: `<p>Resposta registrada!</p><p>Local da festa:</p><a href="https://maps.app.goo.gl/3U17oVefoodYHvru6?g_st=aw" target="_blank" style="color:#ff7f7f;font-weight:bold;">Ver no Google Maps</a>`,
+                        icon: 'success', confirmButtonColor: '#ff7f7f'
+                    });
+                } else {
+                    Swal.fire({ title: 'Resposta confirmada', icon: 'info', confirmButtonColor: '#ff7f7f' });
+                }
+
                 document.getElementById('rsvp-form').reset();
             } catch (e) {
                 Swal.fire({ title: 'Erro', text: 'Não foi possível salvar.', icon: 'error' });
@@ -136,15 +155,57 @@
 
         async function loadGuests() {
             const tbody = document.querySelector('#guests-table tbody');
-            tbody.innerHTML = '<tr><td colspan="2">Carregando planilha...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3">Carregando planilha...</td></tr>';
             try {
                 const response = await fetch(SCRIPT_URL);
                 const data = await response.json();
                 tbody.innerHTML = '';
-                data.forEach(g => {
-                    tbody.innerHTML += `<tr><td>${g.nome}</td><td>${g.status}</td></tr>`;
-                });
+                
+                if(data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Nenhum convidado ainda.</td></tr>';
+                } else {
+                    data.forEach(g => {
+                        let corStatus = g.status === 'Sim, eu vou!' ? 'color: green; font-weight: bold;' : 'color: red; font-weight: bold;';
+                        tbody.innerHTML += `<tr>
+                            <td>${g.nome}</td>
+                            <td style="${corStatus}">${g.status}</td>
+                            <td><button class="btn-delete" onclick="deleteGuest('${g.nome}')">Excluir</button></td>
+                        </tr>`;
+                    });
+                }
             } catch (e) { alert("Erro ao ler planilha"); }
+        }
+
+        // Função para deletar convidados
+        async function deleteGuest(nomeConvidado) {
+            Swal.fire({
+                title: 'Tem certeza?',
+                text: `Você quer apagar ${nomeConvidado} da lista?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ff4d4d',
+                cancelButtonColor: '#aaa',
+                confirmButtonText: 'Sim, apagar',
+                cancelButtonText: 'Cancelar'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    // Pop-up de carregamento
+                    Swal.fire({title: 'Apagando...', allowOutsideClick: false, didOpen: () => {Swal.showLoading()}});
+                    
+                    try {
+                        // Envia o pedido para o script com a ação "delete"
+                        await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            body: JSON.stringify({ action: "delete", nome: nomeConvidado })
+                        });
+                        
+                        Swal.fire({ title: 'Apagado!', text: 'O convidado foi removido.', icon: 'success', confirmButtonColor: '#ff7f7f' });
+                        loadGuests(); // Recarrega a tabela automaticamente
+                    } catch(e) {
+                        Swal.fire('Erro', 'Não foi possível apagar.', 'error');
+                    }
+                }
+            });
         }
 
         function showPage(pageId) {
@@ -157,7 +218,7 @@
                 showPage('admin-page');
                 loadGuests();
             } else {
-                alert('Senha errada!');
+                Swal.fire({ title: 'Erro!', text: 'Senha incorreta!', icon: 'error', confirmButtonColor: '#ff7f7f' });
             }
         }
     </script>
